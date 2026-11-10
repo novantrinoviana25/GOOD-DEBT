@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Filter Nasabah Hampir Lunas</title>
+<style>
+:root{
+  --bg:#f5f6f8; --card:#ffffff; --ink:#1c2430; --muted:#5d6b7e; --line:#dde2ea;
+  --accent:#1f6feb; --accent-ink:#ffffff; --accent-soft:#e6f0ff;
+  --ok:#17803d; --warn:#b4540a; --warn-bg:#fff4e5; --err:#b42318; --err-bg:#feeceb;
+  --row:#f8fafc;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f141b; --card:#171e28; --ink:#e7ecf3; --muted:#9aa8bb; --line:#2a3443;
+    --accent:#5b9bff; --accent-ink:#0b1220; --accent-soft:#1c2a40;
+    --ok:#4cc27a; --warn:#f0a35e; --warn-bg:#2b2014; --err:#ff8a80; --err-bg:#2b1715;
+    --row:#1b2330;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f141b; --card:#171e28; --ink:#e7ecf3; --muted:#9aa8bb; --line:#2a3443;
+  --accent:#5b9bff; --accent-ink:#0b1220; --accent-soft:#1c2a40;
+  --ok:#4cc27a; --warn:#f0a35e; --warn-bg:#2b2014; --err:#ff8a80; --err-bg:#2b1715;
+  --row:#1b2330;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:20px 16px 60px}
+.wrap{max-width:980px;margin:0 auto}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+.card h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 12px;font-weight:600}
+.drop{display:block;border:2px dashed var(--line);border-radius:10px;padding:26px 16px;text-align:center;cursor:pointer;transition:.15s}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop b{display:block;font-size:16px}
+.drop span{color:var(--muted);font-size:13px}
+.drop input{display:none}
+.msg{margin-top:12px;padding:10px 12px;border-radius:8px;font-size:14px;display:none}
+.msg.show{display:block}
+.msg.ok{background:var(--accent-soft);color:var(--ink)}
+.msg.err{background:var(--err-bg);color:var(--err)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+label.f{display:block;font-size:13px;color:var(--muted)}
+label.f input[type=number]{display:block;width:100%;margin-top:4px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+label.f input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.checks{display:flex;flex-wrap:wrap;gap:6px 22px;margin-top:14px}
+.checks label{font-size:14px;display:flex;gap:8px;align-items:center;cursor:pointer}
+.rule{margin-top:14px;padding:10px 12px;background:var(--row);border-radius:8px;font-size:13px;color:var(--muted)}
+.rule b{color:var(--ink)}
+.total{font-size:14px;color:var(--muted);margin-bottom:12px}
+.total b{color:var(--ink);font-size:20px}
+.btns{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.btn{appearance:none;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:12px 14px;font:inherit;cursor:pointer;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:10px;transition:.12s}
+.btn:hover:not(:disabled){border-color:var(--accent);background:var(--accent-soft)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn .n{font-weight:700;font-size:18px;color:var(--accent)}
+.btn .t{font-weight:600}
+.btn .d{display:block;font-size:12px;color:var(--muted);font-weight:400}
+.btn.all{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.all:hover:not(:disabled){background:var(--accent);filter:brightness(1.08)}
+.btn.all .n,.btn.all .d{color:var(--accent-ink)}
+.tablewrap{overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left}
+th{position:sticky;top:0;background:var(--row);font-weight:600;z-index:1}
+td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
+tbody tr:nth-child(even){background:var(--row)}
+.grp{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:14px 0 8px}
+.note{font-size:12px;color:var(--muted);margin-top:8px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Filter Nasabah Hampir Lunas</h1>
+  <p class="sub">Upload report aging, pilih objek, langsung download daftar nasabahnya dalam Excel. Data diproses di browser ini saja, tidak dikirim ke mana pun.</p>
+
+  <div class="card">
+    <h2>1. Upload file report aging (.xlsx)</h2>
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept=".xlsx">
+      <b>Klik di sini atau tarik file ke sini</b>
+      <span id="fname">Belum ada file</span>
+    </label>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>2. Aturan filter</h2>
+    <div class="grid">
+      <label class="f">OS Denda Motor (baru &amp; bekas) di bawah (Rp)
+        <input type="number" id="dendaMotor" value="200000" min="0" step="1000">
+      </label>
+      <label class="f">OS Denda Mobil (baru &amp; bekas) di bawah (Rp)
+        <input type="number" id="dendaMobil" value="1000000" min="0" step="1000">
+      </label>
+    </div>
+    <div class="checks">
+      <label><input type="checkbox" id="exClosed" checked> Buang kontrak yang sudah LUNAS / PRETERM</label>
+      <label><input type="checkbox" id="extra"> Tambah kolom Tenor, Sisa Angsuran, OS Denda di Excel</label>
+    </div>
+    <div class="rule" id="rule"></div>
+  </div>
+
+  <div class="card hidden" id="resCard">
+    <h2>3. Hasil &amp; download</h2>
+    <div class="total" id="total"></div>
+    <div class="grp">Per objek</div>
+    <div class="btns" id="btns"></div>
+    <div class="grp">Per MUFNET</div>
+    <div class="btns" id="btns2"></div>
+    <div class="note">Klik satu tombol untuk download hanya daftar yang diklik (objek atau MUFNET). Isi Excel: No Kontrak, Nama Customer, Jenis, OTR, Ke.</div>
+    <div style="height:16px"></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>No Kontrak</th><th>Nama Customer</th><th>Objek</th><th>Jenis</th><th class="r">OTR</th><th class="r">Tenor</th><th class="r">Ke</th><th class="r">Sisa</th><th class="r">OS Denda</th></tr></thead>
+      <tbody id="tb"></tbody>
+    </table></div>
+    <div class="note" id="tnote"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const rp = n => "Rp " + Math.round(n).toLocaleString("id-ID");
+const num = v => { if (typeof v === "number") return v; if (v == null) return NaN; return parseFloat(String(v).trim()); };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const xmlEsc = s => String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+let DATA = null;      // semua baris dari file
+let RESULT = [];      // baris lolos filter
+let SRC_NAME = "";
+
+/* ============ BACA XLSX (tanpa library) ============ */
+function readZip(buf) {
+  const dv = new DataView(buf), u8 = new Uint8Array(buf), td = new TextDecoder();
+  let e = -1;
+  for (let i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 65557); i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { e = i; break; }
+  }
+  if (e < 0) throw new Error("File ini bukan Excel .xlsx yang valid.");
+  const n = dv.getUint16(e + 10, true);
+  let p = dv.getUint32(e + 16, true);
+  const files = {};
+  for (let i = 0; i < n; i++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true);
+    const nl = dv.getUint16(p + 28, true), el = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true);
+    const off = dv.getUint32(p + 42, true);
+    files[td.decode(u8.subarray(p + 46, p + 46 + nl))] = { method, csize, off };
+    p += 46 + nl + el + cl;
+  }
+  return { files, u8, dv };
+}
+async function inflateRaw(u8) {
+  const stream = new Blob([u8]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+async function zipText(z, name) {
+  const f = z.files[name];
+  if (!f) return null;
+  const nl = z.dv.getUint16(f.off + 26, true), el = z.dv.getUint16(f.off + 28, true);
+  const start = f.off + 30 + nl + el;
+  const data = z.u8.subarray(start, start + f.csize);
+  const out = f.method === 0 ? data : await inflateRaw(data);
+  return new TextDecoder().decode(out);
+}
+const parseXml = t => {
+  const d = new DOMParser().parseFromString(t, "application/xml");
+  if (d.getElementsByTagName("parsererror").length) throw new Error("Isi file Excel tidak bisa dibaca.");
+  return d;
+};
+const colIdx = ref => { let n = 0; for (const ch of ref.replace(/[0-9]/g, "")) n = n * 26 + ch.charCodeAt(0) - 64; return n - 1; };
+
+async function readXlsx(buf) {
+  if (typeof DecompressionStream === "undefined") throw new Error("Browser terlalu lama. Pakai Chrome, Edge, atau Firefox versi terbaru.");
+  const z = readZip(buf);
+  // cari sheet pertama
+  let sheetPath = "xl/worksheets/sheet1.xml";
+  try {
+    const wb = parseXml(await zipText(z, "xl/workbook.xml"));
+    const rels = parseXml(await zipText(z, "xl/_rels/workbook.xml.rels"));
+    const sh = wb.getElementsByTagName("sheet")[0];
+    const rid = sh && (sh.getAttribute("r:id") || sh.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id"));
+    for (const r of rels.getElementsByTagName("Relationship")) {
+      if (r.getAttribute("Id") === rid) {
+        let t = r.getAttribute("Target");
+        sheetPath = t.startsWith("/") ? t.slice(1) : "xl/" + t;
+      }
+    }
+  } catch (e) { /* pakai default */ }
+  const sstXml = await zipText(z, "xl/sharedStrings.xml");
+  const sst = [];
+  if (sstXml) {
+    for (const si of parseXml(sstXml).getElementsByTagName("si")) {
+      let s = "";
+      for (const t of si.getElementsByTagName("t")) if (t.parentNode.nodeName !== "rPh") s += t.textContent;
+      sst.push(s);
+    }
+  }
+  const sheetXml = await zipText(z, sheetPath);
+  if (!sheetXml) throw new Error("Sheet pertama tidak ditemukan di file ini.");
+  const doc = parseXml(sheetXml);
+
+  const NEED = ["NO_KONTRAK", "NAMA_CUSTOMER", "JENIS", "OTR", "OBJECT", "TENOR", "KE", "OS_DENDA", "TYPE_RESTRUCTUR", "MUFNET", "STATUS_KONTRAK"];
+  const REQUIRED = NEED.slice(0, 10);
+  let map = null, rows = [];
+  for (const row of doc.getElementsByTagName("row")) {
+    const cells = {};
+    for (const c of row.getElementsByTagName("c")) {
+      const t = c.getAttribute("t");
+      let val = null;
+      if (t === "inlineStr") {
+        val = ""; for (const x of c.getElementsByTagName("t")) val += x.textContent;
+      } else {
+        const v = c.getElementsByTagName("v")[0];
+        if (v) {
+          const tx = v.textContent;
+          if (t === "s") val = sst[+tx];
+          else if (t === "str" || t === "e") val = tx;
+          else if (t === "b") val = tx === "1";
+          else val = parseFloat(tx);
+        }
+      }
+      if (val !== null) cells[colIdx(c.getAttribute("r"))] = val;
+    }
+    if (!map) {
+      const m = {};
+      for (const k in cells) { const h = String(cells[k]).trim().toUpperCase(); if (NEED.includes(h)) m[h] = +k; }
+      if (m.NO_KONTRAK !== undefined) map = m;
+      continue;
+    }
+    const kontrak = cells[map.NO_KONTRAK];
+    if (kontrak == null || String(kontrak).trim() === "") continue;
+    const g = k => map[k] === undefined ? null : (cells[map[k]] ?? null);
+    rows.push({
+      kontrak: String(kontrak).trim(),
+      nama: g("NAMA_CUSTOMER") ?? "",
+      jenis: g("JENIS") ?? "",
+      otr: num(g("OTR")),
+      objek: String(g("OBJECT") ?? "").trim().toUpperCase() || "(TANPA OBJEK)",
+      tenor: num(g("TENOR")),
+      ke: num(g("KE")),
+      denda: num(g("OS_DENDA")),
+      restr: String(g("TYPE_RESTRUCTUR") ?? "").trim(),
+      mufnet: String(g("MUFNET") ?? "").trim().toUpperCase() || "(TANPA MUFNET)",
+      status: String(g("STATUS_KONTRAK") ?? "").trim().toUpperCase()
+    });
+  }
+  if (!map) throw new Error("Header kolom NO_KONTRAK tidak ditemukan. Pastikan ini file report aging yang benar.");
+  const miss = REQUIRED.filter(k => map[k] === undefined);
+  if (miss.length) throw new Error("Kolom tidak ditemukan: " + miss.join(", "));
+  return rows;
+}
+
+/* ============ TULIS XLSX (tanpa library) ============ */
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const crc32 = u8 => { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+
+function makeZip(entries) {
+  const te = new TextEncoder(), chunks = [], central = [];
+  let offset = 0;
+  const now = new Date();
+  const dt = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+  const dd = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  for (const e of entries) {
+    const nm = te.encode(e.name), len = e.data.length, crc = crc32(e.data);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true);
+    lh.setUint16(10, dt, true); lh.setUint16(12, dd, true);
+    lh.setUint32(14, crc, true); lh.setUint32(18, len, true); lh.setUint32(22, len, true);
+    lh.setUint16(26, nm.length, true);
+    chunks.push(new Uint8Array(lh.buffer), nm, e.data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true);
+    ch.setUint16(12, dt, true); ch.setUint16(14, dd, true);
+    ch.setUint32(16, crc, true); ch.setUint32(20, len, true); ch.setUint32(24, len, true);
+    ch.setUint16(28, nm.length, true); ch.setUint32(42, offset, true);
+    central.push(new Uint8Array(ch.buffer), nm);
+    offset += 30 + nm.length + len;
+  }
+  const cdSize = central.reduce((a, b) => a + b.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, entries.length, true); end.setUint16(10, entries.length, true);
+  end.setUint32(12, cdSize, true); end.setUint32(16, offset, true);
+  return new Blob([...chunks, ...central, new Uint8Array(end.buffer)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+}
+
+const colName = i => { let s = ""; for (i++; i > 0; i = Math.floor((i - 1) / 26)) s += String.fromCharCode(65 + (i - 1) % 26); return s; };
+
+function sheetXml(headers, rows, numCols) {
+  const widths = headers.map((h, i) => {
+    let w = h.length;
+    for (const r of rows) { const v = r[i]; const l = typeof v === "number" ? 14 : String(v ?? "").length; if (l > w) w = l; }
+    return Math.min(Math.max(w + 2, 10), 45);
+  });
+  let x = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+  x += '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>';
+  x += "<cols>" + widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("") + "</cols><sheetData>";
+  x += '<row r="1">' + headers.map((h, i) => `<c r="${colName(i)}1" s="1" t="inlineStr"><is><t>${xmlEsc(h)}</t></is></c>`).join("") + "</row>";
+  rows.forEach((r, ri) => {
+    const rn = ri + 2;
+    x += `<row r="${rn}">`;
+    r.forEach((v, ci) => {
+      const ref = colName(ci) + rn;
+      if (typeof v === "number" && isFinite(v)) x += `<c r="${ref}"${numCols.has(ci) ? ' s="2"' : ""}><v>${v}</v></c>`;
+      else if (v !== null && v !== undefined && v !== "" && !(typeof v === "number")) x += `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xmlEsc(v)}</t></is></c>`;
+    });
+    x += "</row>";
+  });
+  x += "</sheetData>";
+  x += `<autoFilter ref="A1:${colName(headers.length - 1)}${rows.length + 1}"/></worksheet>`;
+  return x;
+}
+
+function makeXlsx(sheets) { // sheets: [{name, headers, rows, numCols:Set}]
+  const te = new TextEncoder(), H = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+  const used = new Set();
+  const names = sheets.map(s => {
+    let n = s.name.replace(/[\[\]:*?\/\\]/g, " ").slice(0, 31) || "Sheet";
+    let b = n, k = 2; while (used.has(n.toLowerCase())) n = b.slice(0, 28) + " " + k++;
+    used.add(n.toLowerCase()); return n;
+  });
+  const entries = [
+    { name: "[Content_Types].xml", data: te.encode(H + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' + sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("") + "</Types>") },
+    { name: "_rels/.rels", data: te.encode(H + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>') },
+    { name: "xl/workbook.xml", data: te.encode(H + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' + names.map((n, i) => `<sheet name="${xmlEsc(n)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("") + "</sheets></workbook>") },
+    { name: "xl/_rels/workbook.xml.rels", data: te.encode(H + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("") + `<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`) },
+    { name: "xl/styles.xml", data: te.encode(H + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9E7F5"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>') }
+  ];
+  sheets.forEach((s, i) => entries.push({ name: `xl/worksheets/sheet${i + 1}.xml`, data: te.encode(sheetXml(s.headers, s.rows, s.numCols)) }));
+  return makeZip(entries);
+}
+
+/* ============ FILTER ============ */
+function params() {
+  return {
+    motor: num($("#dendaMotor").value), mobil: num($("#dendaMobil").value), exClosed: $("#exClosed").checked
+  };
+}
+/* sisa angsuran maksimal otomatis menurut tenor */
+const sisaMaks = t => t < 14 ? 3 : t <= 29 ? 6 : 10;
+function applyFilter() {
+  const p = params();
+  $("#rule").innerHTML = `Sisa angsuran (otomatis): tenor &lt; 14 → <b>3x</b> lagi &nbsp;·&nbsp; tenor 14–29 → <b>6x</b> lagi &nbsp;·&nbsp; tenor &gt; 29 → <b>10x</b> lagi &nbsp;·&nbsp; OS Denda Motor &lt; <b>${rp(p.motor || 0)}</b>, Mobil &lt; <b>${rp(p.mobil || 0)}</b> &nbsp;·&nbsp; Type Restruktur <b>kosong</b>` +
+    (p.exClosed ? " &nbsp;·&nbsp; bukan LUNAS/PRETERM" : "") + `<br>Sisa angsuran = Tenor − Ke.`;
+  if (!DATA) return;
+  RESULT = DATA.filter(r => {
+    const sisa = r.tenor - r.ke;
+    if (!isFinite(sisa) || sisa < 0) return false;
+    if (sisa > sisaMaks(r.tenor)) return false;
+    if (!(r.denda < (r.objek.includes("MOTOR") ? p.motor : p.mobil))) return false;
+    if (r.restr !== "") return false;
+    if (p.exClosed && /^(LUNAS|PRETERM)/.test(r.status)) return false;
+    return true;
+  });
+  render();
+}
+
+/* ============ TAMPILAN ============ */
+const titleCase = s => s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+function render() {
+  $("#resCard").classList.remove("hidden");
+  const groupBy = f => { const g = {}; RESULT.forEach(r => (g[r[f]] ||= []).push(r)); return g; };
+  const byObj = groupBy("objek"), byMuf = groupBy("mufnet");
+  const objKeys = Object.keys(byObj).sort(), mufKeys = Object.keys(byMuf).sort();
+  $("#total").innerHTML = `<b>${RESULT.length.toLocaleString("id-ID")}</b> nasabah lolos dari ${DATA.length.toLocaleString("id-ID")} kontrak`;
+  const n = x => x.toLocaleString("id-ID");
+  const mk = (box, title, sub, count, cls, fn) => {
+    const b = document.createElement("button");
+    b.className = "btn" + (cls ? " " + cls : "");
+    b.disabled = !count;
+    b.innerHTML = `<span><span class="t">${esc(title)}</span><span class="d">${esc(sub)}</span></span><span class="n">${n(count)}</span>`;
+    b.onclick = fn;
+    box.appendChild(b);
+  };
+  const box1 = $("#btns"), box2 = $("#btns2");
+  box1.innerHTML = ""; box2.innerHTML = "";
+  // tombol objek: hanya objek itu (semua MUFNET)
+  objKeys.forEach(k => mk(box1, titleCase(k), "Download Excel", byObj[k].length, "", () => downloadFile(k, { [k]: byObj[k] })));
+  mk(box1, "Semua objek", "1 file, 1 tab per objek", RESULT.length, "all", () => downloadFile("SEMUA_OBJEK", byObj));
+  // tombol MUFNET: hanya MUFNET itu, 1 tab per objek
+  mufKeys.forEach(k => {
+    const sub = {}; byMuf[k].forEach(r => (sub[r.objek] ||= []).push(r));
+    mk(box2, titleCase(k), "1 tab per objek", byMuf[k].length, "", () => downloadFile("MUFNET_" + k, sub));
+  });
+  if (!objKeys.length) box1.insertAdjacentHTML("afterbegin", '<div class="note">Tidak ada nasabah yang cocok dengan aturan ini.</div>');
+
+  const LIM = 200;
+  $("#tb").innerHTML = RESULT.slice(0, LIM).map(r =>
+    `<tr><td>${esc(r.kontrak)}</td><td>${esc(r.nama)}</td><td>${esc(titleCase(r.objek))}</td><td>${esc(r.jenis)}</td><td class="r">${isFinite(r.otr) ? r.otr.toLocaleString("id-ID") : ""}</td><td class="r">${r.tenor}</td><td class="r">${r.ke}</td><td class="r">${r.tenor - r.ke}</td><td class="r">${isFinite(r.denda) ? r.denda.toLocaleString("id-ID") : ""}</td></tr>`).join("");
+  $("#tnote").textContent = RESULT.length > LIM ? `Pratinjau ${LIM} baris pertama dari ${RESULT.length}. File Excel berisi semuanya.` : "";
+}
+
+function downloadFile(label, groups) {
+  const keys = Object.keys(groups).sort();
+  const extra = $("#extra").checked;
+  const headers = ["No Kontrak", "Nama Customer", "Jenis", "OTR", "Ke"].concat(extra ? ["Tenor", "Sisa Angsuran", "OS Denda"] : []);
+  const numCols = new Set(extra ? [3, 4, 5, 6, 7] : [3]);
+  const sheets = keys.map(k => ({
+    name: titleCase(k), headers, numCols,
+    rows: groups[k].map(r => [r.kontrak, r.nama, r.jenis, r.otr, r.ke].concat(extra ? [r.tenor, r.tenor - r.ke, r.denda] : []))
+  }));
+  const d = new Date(), pad = n => String(n).padStart(2, "0");
+  const stamp = `${pad(d.getDate())}${pad(d.getMonth() + 1)}${d.getFullYear()}`;
+  const blob = makeXlsx(sheets);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `Nasabah_Hampir_Lunas_${label.replace(/\s+/g, "_")}_${stamp}.xlsx`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+/* ============ UPLOAD ============ */
+function showMsg(text, type) { const m = $("#msg"); m.className = "msg show " + type; m.textContent = text; }
+async function handleFile(f) {
+  if (!f) return;
+  SRC_NAME = f.name; $("#fname").textContent = f.name;
+  showMsg("Membaca file…", "ok");
+  try {
+    DATA = await readXlsx(await f.arrayBuffer());
+    showMsg(`File terbaca: ${DATA.length.toLocaleString("id-ID")} kontrak.`, "ok");
+    applyFilter();
+  } catch (e) {
+    DATA = null; RESULT = []; $("#resCard").classList.add("hidden");
+    showMsg(e.message || "Gagal membaca file.", "err");
+  }
+}
+$("#file").addEventListener("change", e => handleFile(e.target.files[0]));
+const drop = $("#drop");
+["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => handleFile(e.dataTransfer.files[0]));
+["dendaMotor", "dendaMobil", "exClosed"].forEach(id => $("#" + id).addEventListener("input", applyFilter));
+applyFilter();
+</script>
+</body>
+</html>
