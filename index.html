@@ -69,6 +69,11 @@ th{position:sticky;top:0;background:var(--row);font-weight:600;z-index:1}
 td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
 tbody tr:nth-child(even){background:var(--row)}
 .grp{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:14px 0 8px}
+.btn.on{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent)}
+.dlbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.dlbar #dlinfo{font-size:14px;color:var(--muted);flex:1 1 240px}
+.dlbar #dlinfo b{color:var(--ink)}
+.dlbar .btn{min-width:240px}
 .note{font-size:12px;color:var(--muted);margin-top:8px}
 .hidden{display:none}
 </style>
@@ -76,7 +81,7 @@ tbody tr:nth-child(even){background:var(--row)}
 <body>
 <div class="wrap">
   <h1>Filter Nasabah Hampir Lunas</h1>
-  <p class="sub">Upload report aging, pilih objek, langsung download daftar nasabahnya dalam Excel. Data diproses di browser ini saja, tidak dikirim ke mana pun.</p>
+  <p class="sub">Upload report aging, pilih objek dan MUFNET, lalu download daftar nasabahnya dalam Excel. Data diproses di browser ini saja, tidak dikirim ke mana pun.</p>
 
   <div class="card">
     <h2>1. Upload file report aging (.xlsx)</h2>
@@ -99,26 +104,29 @@ tbody tr:nth-child(even){background:var(--row)}
       </label>
     </div>
     <div class="checks">
-      <label><input type="checkbox" id="exClosed" checked> Buang kontrak yang sudah LUNAS / PRETERM</label>
-      <label><input type="checkbox" id="extra"> Tambah kolom Tenor, Sisa Angsuran, OS Denda di Excel</label>
+      <label><input type="checkbox" id="extra"> Tambah kolom Tenor, Sisa Angsuran, OS Denda di Excel (opsional)</label>
     </div>
     <div class="rule" id="rule"></div>
   </div>
 
   <div class="card hidden" id="resCard">
-    <h2>3. Hasil &amp; download</h2>
+    <h2>3. Pilih objek &amp; MUFNET</h2>
     <div class="total" id="total"></div>
-    <div class="grp">Per objek</div>
+    <div class="grp">Objek</div>
     <div class="btns" id="btns"></div>
-    <div class="grp">Per MUFNET</div>
+    <div class="grp">MUFNET</div>
     <div class="btns" id="btns2"></div>
-    <div class="note">Klik satu tombol untuk download hanya daftar yang diklik (objek atau MUFNET). Isi Excel: No Kontrak, Nama Customer, Jenis, OTR, Ke.</div>
+    <div class="note">Klik untuk memilih (bisa lebih dari satu, klik lagi untuk batal). Kalau tidak ada yang dipilih, semua ikut. Objek dan MUFNET yang dipilih digabung: hanya nasabah yang cocok dengan keduanya.</div>
     <div style="height:16px"></div>
     <div class="tablewrap"><table>
-      <thead><tr><th>No Kontrak</th><th>Nama Customer</th><th>Objek</th><th>Jenis</th><th class="r">OTR</th><th class="r">Tenor</th><th class="r">Ke</th><th class="r">Sisa</th><th class="r">OS Denda</th></tr></thead>
+      <thead><tr><th>No Kontrak</th><th>Nama Customer</th><th>Objek</th><th>MUFNET</th><th>Jenis</th><th class="r">OTR</th><th class="r">Plafon</th><th class="r">Tenor</th><th class="r">Ke</th><th class="r">Sisa</th><th class="r">OS Denda</th></tr></thead>
       <tbody id="tb"></tbody>
     </table></div>
     <div class="note" id="tnote"></div>
+    <div class="dlbar">
+      <div id="dlinfo"></div>
+      <button class="btn all" id="dl" type="button"><span><span class="t">Download Excel</span><span class="d" id="dlsub"></span></span></button>
+    </div>
   </div>
 </div>
 
@@ -205,7 +213,7 @@ async function readXlsx(buf) {
   if (!sheetXml) throw new Error("Sheet pertama tidak ditemukan di file ini.");
   const doc = parseXml(sheetXml);
 
-  const NEED = ["NO_KONTRAK", "NAMA_CUSTOMER", "JENIS", "OTR", "OBJECT", "TENOR", "KE", "OS_DENDA", "TYPE_RESTRUCTUR", "MUFNET", "STATUS_KONTRAK"];
+  const NEED = ["NO_KONTRAK", "NAMA_CUSTOMER", "JENIS", "OTR", "OBJECT", "TENOR", "KE", "OS_DENDA", "TYPE_RESTRUCTUR", "MUFNET"];
   const REQUIRED = NEED.slice(0, 10);
   let map = null, rows = [];
   for (const row of doc.getElementsByTagName("row")) {
@@ -246,8 +254,7 @@ async function readXlsx(buf) {
       ke: num(g("KE")),
       denda: num(g("OS_DENDA")),
       restr: String(g("TYPE_RESTRUCTUR") ?? "").trim(),
-      mufnet: String(g("MUFNET") ?? "").trim().toUpperCase() || "(TANPA MUFNET)",
-      status: String(g("STATUS_KONTRAK") ?? "").trim().toUpperCase()
+      mufnet: String(g("MUFNET") ?? "").trim().toUpperCase() || "(TANPA MUFNET)"
     });
   }
   if (!map) throw new Error("Header kolom NO_KONTRAK tidak ditemukan. Pastikan ini file report aging yang benar.");
@@ -294,7 +301,7 @@ const colName = i => { let s = ""; for (i++; i > 0; i = Math.floor((i - 1) / 26)
 function sheetXml(headers, rows, numCols) {
   const widths = headers.map((h, i) => {
     let w = h.length;
-    for (const r of rows) { const v = r[i]; const l = typeof v === "number" ? 14 : String(v ?? "").length; if (l > w) w = l; }
+    for (const r of rows) { const v = r[i]; const l = (typeof v === "number" || (v && typeof v === "object")) ? 14 : String(v ?? "").length; if (l > w) w = l; }
     return Math.min(Math.max(w + 2, 10), 45);
   });
   let x = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
@@ -306,6 +313,7 @@ function sheetXml(headers, rows, numCols) {
     x += `<row r="${rn}">`;
     r.forEach((v, ci) => {
       const ref = colName(ci) + rn;
+      if (v && typeof v === "object") { x += `<c r="${ref}" s="2"><f>${colName(v.mul[0])}${rn}*${v.mul[1]}</f><v>${v.v}</v></c>`; return; }
       if (typeof v === "number" && isFinite(v)) x += `<c r="${ref}"${numCols.has(ci) ? ' s="2"' : ""}><v>${v}</v></c>`;
       else if (v !== null && v !== undefined && v !== "" && !(typeof v === "number")) x += `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xmlEsc(v)}</t></is></c>`;
     });
@@ -337,82 +345,93 @@ function makeXlsx(sheets) { // sheets: [{name, headers, rows, numCols:Set}]
 
 /* ============ FILTER ============ */
 function params() {
-  return {
-    motor: num($("#dendaMotor").value), mobil: num($("#dendaMobil").value), exClosed: $("#exClosed").checked
-  };
+  return { motor: num($("#dendaMotor").value), mobil: num($("#dendaMobil").value) };
 }
 /* sisa angsuran maksimal otomatis menurut tenor */
 const sisaMaks = t => t < 14 ? 3 : t <= 29 ? 6 : 10;
+const isMotor = r => r.objek.includes("MOTOR");
+const plafonOf = r => r.otr * (isMotor(r) ? 0.8 : 0.75);
+const SEL = { objek: new Set(), mufnet: new Set() };
+
 function applyFilter() {
   const p = params();
-  $("#rule").innerHTML = `Sisa angsuran (otomatis): tenor &lt; 14 → <b>3x</b> lagi &nbsp;·&nbsp; tenor 14–29 → <b>6x</b> lagi &nbsp;·&nbsp; tenor &gt; 29 → <b>10x</b> lagi &nbsp;·&nbsp; OS Denda Motor &lt; <b>${rp(p.motor || 0)}</b>, Mobil &lt; <b>${rp(p.mobil || 0)}</b> &nbsp;·&nbsp; Type Restruktur <b>kosong</b>` +
-    (p.exClosed ? " &nbsp;·&nbsp; bukan LUNAS/PRETERM" : "") + `<br>Sisa angsuran = Tenor − Ke.`;
+  $("#rule").innerHTML = `Sisa angsuran (otomatis): tenor &lt; 14 → <b>3x</b> lagi &nbsp;·&nbsp; tenor 14–29 → <b>6x</b> lagi &nbsp;·&nbsp; tenor &gt; 29 → <b>10x</b> lagi<br>OS Denda Motor &lt; <b>${rp(p.motor || 0)}</b>, Mobil &lt; <b>${rp(p.mobil || 0)}</b> &nbsp;·&nbsp; Type Restruktur <b>kosong</b> &nbsp;·&nbsp; kontrak LUNAS/PRETERM ikut<br>Sisa angsuran = Tenor − Ke. &nbsp;Plafon = OTR × <b>75%</b> (mobil) / <b>80%</b> (motor).`;
   if (!DATA) return;
   RESULT = DATA.filter(r => {
     const sisa = r.tenor - r.ke;
     if (!isFinite(sisa) || sisa < 0) return false;
     if (sisa > sisaMaks(r.tenor)) return false;
-    if (!(r.denda < (r.objek.includes("MOTOR") ? p.motor : p.mobil))) return false;
+    if (!(r.denda < (isMotor(r) ? p.motor : p.mobil))) return false;
     if (r.restr !== "") return false;
-    if (p.exClosed && /^(LUNAS|PRETERM)/.test(r.status)) return false;
     return true;
   });
+  for (const f of ["objek", "mufnet"]) for (const k of [...SEL[f]]) if (!RESULT.some(r => r[f] === k)) SEL[f].delete(k);
   render();
 }
+const picked = () => RESULT.filter(r => (!SEL.objek.size || SEL.objek.has(r.objek)) && (!SEL.mufnet.size || SEL.mufnet.has(r.mufnet)));
 
 /* ============ TAMPILAN ============ */
 const titleCase = s => s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+const fmt = n => n.toLocaleString("id-ID");
+let CHIPS = [];
 function render() {
   $("#resCard").classList.remove("hidden");
-  const groupBy = f => { const g = {}; RESULT.forEach(r => (g[r[f]] ||= []).push(r)); return g; };
-  const byObj = groupBy("objek"), byMuf = groupBy("mufnet");
-  const objKeys = Object.keys(byObj).sort(), mufKeys = Object.keys(byMuf).sort();
-  $("#total").innerHTML = `<b>${RESULT.length.toLocaleString("id-ID")}</b> nasabah lolos dari ${DATA.length.toLocaleString("id-ID")} kontrak`;
-  const n = x => x.toLocaleString("id-ID");
-  const mk = (box, title, sub, count, cls, fn) => {
-    const b = document.createElement("button");
-    b.className = "btn" + (cls ? " " + cls : "");
-    b.disabled = !count;
-    b.innerHTML = `<span><span class="t">${esc(title)}</span><span class="d">${esc(sub)}</span></span><span class="n">${n(count)}</span>`;
-    b.onclick = fn;
-    box.appendChild(b);
-  };
-  const box1 = $("#btns"), box2 = $("#btns2");
-  box1.innerHTML = ""; box2.innerHTML = "";
-  // tombol objek: hanya objek itu (semua MUFNET)
-  objKeys.forEach(k => mk(box1, titleCase(k), "Download Excel", byObj[k].length, "", () => downloadFile(k, { [k]: byObj[k] })));
-  mk(box1, "Semua objek", "1 file, 1 tab per objek", RESULT.length, "all", () => downloadFile("SEMUA_OBJEK", byObj));
-  // tombol MUFNET: hanya MUFNET itu, 1 tab per objek
-  mufKeys.forEach(k => {
-    const sub = {}; byMuf[k].forEach(r => (sub[r.objek] ||= []).push(r));
-    mk(box2, titleCase(k), "1 tab per objek", byMuf[k].length, "", () => downloadFile("MUFNET_" + k, sub));
+  $("#total").innerHTML = `<b>${fmt(RESULT.length)}</b> nasabah lolos filter dari ${fmt(DATA.length)} kontrak`;
+  CHIPS = [];
+  for (const [f, boxId] of [["objek", "#btns"], ["mufnet", "#btns2"]]) {
+    const cnt = {};
+    RESULT.forEach(r => cnt[r[f]] = (cnt[r[f]] || 0) + 1);
+    const box = $(boxId); box.innerHTML = "";
+    Object.keys(cnt).sort().forEach(k => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "btn";
+      b.innerHTML = `<span><span class="t">${esc(titleCase(k))}</span><span class="d"></span></span><span class="n">${fmt(cnt[k])}</span>`;
+      b.onclick = () => { SEL[f].has(k) ? SEL[f].delete(k) : SEL[f].add(k); renderSel(); };
+      box.appendChild(b); CHIPS.push({ b, f, k });
+    });
+    if (!Object.keys(cnt).length) box.innerHTML = '<div class="note">Tidak ada nasabah yang cocok dengan aturan ini.</div>';
+  }
+  renderSel();
+}
+function renderSel() {
+  CHIPS.forEach(({ b, f, k }) => {
+    const on = SEL[f].has(k);
+    b.classList.toggle("on", on);
+    b.querySelector(".d").textContent = on ? "Dipilih ✓" : "Klik untuk pilih";
   });
-  if (!objKeys.length) box1.insertAdjacentHTML("afterbegin", '<div class="note">Tidak ada nasabah yang cocok dengan aturan ini.</div>');
-
-  const LIM = 200;
-  $("#tb").innerHTML = RESULT.slice(0, LIM).map(r =>
-    `<tr><td>${esc(r.kontrak)}</td><td>${esc(r.nama)}</td><td>${esc(titleCase(r.objek))}</td><td>${esc(r.jenis)}</td><td class="r">${isFinite(r.otr) ? r.otr.toLocaleString("id-ID") : ""}</td><td class="r">${r.tenor}</td><td class="r">${r.ke}</td><td class="r">${r.tenor - r.ke}</td><td class="r">${isFinite(r.denda) ? r.denda.toLocaleString("id-ID") : ""}</td></tr>`).join("");
-  $("#tnote").textContent = RESULT.length > LIM ? `Pratinjau ${LIM} baris pertama dari ${RESULT.length}. File Excel berisi semuanya.` : "";
+  const rows = picked(), LIM = 200;
+  $("#tb").innerHTML = rows.slice(0, LIM).map(r =>
+    `<tr><td>${esc(r.kontrak)}</td><td>${esc(r.nama)}</td><td>${esc(titleCase(r.objek))}</td><td>${esc(titleCase(r.mufnet))}</td><td>${esc(r.jenis)}</td><td class="r">${isFinite(r.otr) ? fmt(r.otr) : ""}</td><td class="r">${isFinite(r.otr) ? fmt(Math.round(plafonOf(r))) : ""}</td><td class="r">${r.tenor}</td><td class="r">${r.ke}</td><td class="r">${r.tenor - r.ke}</td><td class="r">${isFinite(r.denda) ? fmt(r.denda) : ""}</td></tr>`).join("");
+  $("#tnote").textContent = rows.length > LIM ? `Pratinjau ${LIM} baris pertama dari ${fmt(rows.length)}. File Excel berisi semuanya.` : "";
+  const parts = [...SEL.objek, ...SEL.mufnet].map(titleCase);
+  $("#dlinfo").innerHTML = `Yang akan didownload: <b>${parts.length ? esc(parts.join(" + ")) : "Semua objek &amp; semua MUFNET"}</b> · <b>${fmt(rows.length)}</b> nasabah<br><span style="font-size:12px">Isi Excel: No Kontrak, Nama Customer, Jenis, OTR, Plafon, Ke. Satu tab per objek.</span>`;
+  $("#dlsub").textContent = `${fmt(rows.length)} nasabah`;
+  $("#dl").disabled = !rows.length;
 }
 
-function downloadFile(label, groups) {
-  const keys = Object.keys(groups).sort();
+function downloadFile() {
+  const rows = picked();
+  if (!rows.length) return;
+  const groups = {};
+  rows.forEach(r => (groups[r.objek] ||= []).push(r));
   const extra = $("#extra").checked;
-  const headers = ["No Kontrak", "Nama Customer", "Jenis", "OTR", "Ke"].concat(extra ? ["Tenor", "Sisa Angsuran", "OS Denda"] : []);
-  const numCols = new Set(extra ? [3, 4, 5, 6, 7] : [3]);
-  const sheets = keys.map(k => ({
+  const headers = ["No Kontrak", "Nama Customer", "Jenis", "OTR", "Plafon", "Ke"].concat(extra ? ["Tenor", "Sisa Angsuran", "OS Denda"] : []);
+  const numCols = new Set(extra ? [3, 4, 8] : [3, 4]);
+  const sheets = Object.keys(groups).sort().map(k => ({
     name: titleCase(k), headers, numCols,
-    rows: groups[k].map(r => [r.kontrak, r.nama, r.jenis, r.otr, r.ke].concat(extra ? [r.tenor, r.tenor - r.ke, r.denda] : []))
+    rows: groups[k].map(r => [r.kontrak, r.nama, r.jenis, r.otr, { mul: [3, isMotor(r) ? 0.8 : 0.75], v: plafonOf(r) }, r.ke].concat(extra ? [r.tenor, r.tenor - r.ke, r.denda] : []))
   }));
   const d = new Date(), pad = n => String(n).padStart(2, "0");
   const stamp = `${pad(d.getDate())}${pad(d.getMonth() + 1)}${d.getFullYear()}`;
-  const blob = makeXlsx(sheets);
+  const parts = [...SEL.objek, ...SEL.mufnet];
+  const label = (parts.length ? parts.join("_") : "SEMUA").replace(/\s+/g, "_");
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `Nasabah_Hampir_Lunas_${label.replace(/\s+/g, "_")}_${stamp}.xlsx`;
+  a.href = URL.createObjectURL(makeXlsx(sheets));
+  a.download = `Nasabah_Hampir_Lunas_${label}_${stamp}.xlsx`;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
+$("#dl").addEventListener("click", downloadFile);
 
 /* ============ UPLOAD ============ */
 function showMsg(text, type) { const m = $("#msg"); m.className = "msg show " + type; m.textContent = text; }
@@ -422,6 +441,7 @@ async function handleFile(f) {
   showMsg("Membaca file…", "ok");
   try {
     DATA = await readXlsx(await f.arrayBuffer());
+    SEL.objek.clear(); SEL.mufnet.clear();
     showMsg(`File terbaca: ${DATA.length.toLocaleString("id-ID")} kontrak.`, "ok");
     applyFilter();
   } catch (e) {
@@ -434,7 +454,7 @@ const drop = $("#drop");
 ["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
 ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
 drop.addEventListener("drop", e => handleFile(e.dataTransfer.files[0]));
-["dendaMotor", "dendaMobil", "exClosed"].forEach(id => $("#" + id).addEventListener("input", applyFilter));
+["dendaMotor", "dendaMobil"].forEach(id => $("#" + id).addEventListener("input", applyFilter));
 applyFilter();
 </script>
 </body>
